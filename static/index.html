@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SWEETSON JOSEPH - Flap Screen Saver</title>
+    <style>
+        body {
+            background-color: #000000; /* Pure black for screen saver */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
+            cursor: none; /* Hides the mouse cursor */
+            overflow: hidden; /* Prevents any scrollbars */
+        }
+
+        .board {
+            background-color: #0a0a0a;
+            padding: 40px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px; 
+            box-shadow: 0 15px 50px rgba(0,0,0,1);
+        }
+
+        .row {
+            display: flex;
+            gap: 8px; 
+            justify-content: center;
+        }
+
+        .flap-tile {
+            position: relative;
+            width: 75px;
+            height: 110px;
+            background-color: #222222; 
+            color: #ffffff; 
+            font-size: 70px;
+            font-weight: 400; 
+            border-radius: 4px;
+            perspective: 1000px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.8);
+        }
+
+        .flap-tile::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: #000000;
+            z-index: 10;
+            transform: translateY(-50%);
+        }
+
+        .flap-tile::after,
+        .hinge-right {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 6px;
+            height: 12px;
+            background-color: #000000;
+            transform: translateY(-50%);
+            z-index: 11;
+        }
+
+        .flap-tile::after { left: -2px; border-radius: 0 3px 3px 0; }
+        .hinge-right { right: -2px; border-radius: 3px 0 0 3px; }
+
+        .half {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            overflow: hidden;
+            background-color: #222222;
+            display: flex;
+            justify-content: center;
+            border-radius: 4px;
+        }
+
+        .top {
+            top: 0;
+            align-items: flex-end; 
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .top span {
+            transform: translateY(50%); 
+        }
+
+        .bottom {
+            bottom: 0;
+            align-items: flex-start; 
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+
+        .bottom span {
+            transform: translateY(-50%); 
+        }
+
+        .flipper {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 50%;
+            overflow: hidden;
+            background-color: #222222;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            transform-origin: bottom center;
+            z-index: 5;
+            border-radius: 4px 4px 0 0;
+        }
+
+        .flipper span {
+            transform: translateY(50%);
+        }
+
+        .flip-anim {
+            animation: flipDown 0.1s linear forwards;
+        }
+
+        @keyframes flipDown {
+            0% { transform: rotateX(0deg); }
+            100% { transform: rotateX(-90deg); filter: brightness(0.5); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="board" id="board">
+        <!-- Rows will be injected here by JavaScript -->
+    </div>
+
+    <script>
+        const line1 = "SWEETSON";
+        const line2 = "JOSEPH  "; 
+        
+        const board = document.getElementById('board');
+        const alphabet = " ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        function createRow() {
+            const row = document.createElement('div');
+            row.className = 'row';
+            board.appendChild(row);
+            return row;
+        }
+
+        function animateTile(tile, targetChar) {
+            return new Promise(resolve => {
+                let currentIndex = 0;
+                const topHalf = tile.querySelector('.top span');
+                const bottomHalf = tile.querySelector('.bottom span');
+
+                const interval = setInterval(() => {
+                    const currentLetter = alphabet[currentIndex % alphabet.length];
+                    const nextLetter = alphabet[(currentIndex + 1) % alphabet.length];
+
+                    const flipper = document.createElement('div');
+                    flipper.className = 'flipper flip-anim';
+                    flipper.innerHTML = `<span>${currentLetter}</span>`;
+                    tile.appendChild(flipper);
+
+                    topHalf.innerText = nextLetter;
+
+                    setTimeout(() => {
+                        bottomHalf.innerText = nextLetter;
+                        flipper.remove();
+                    }, 100);
+
+                    if (nextLetter === targetChar) {
+                        clearInterval(interval);
+                        resolve(); 
+                    } else {
+                        currentIndex++;
+                    }
+                }, 120); 
+            });
+        }
+
+        async function animateLine(text, rowElement, startDelay) {
+            const tiles = [];
+            
+            text.split('').forEach((char) => {
+                const tile = document.createElement('div');
+                tile.className = 'flap-tile';
+                tile.innerHTML = `
+                    <div class="hinge-right"></div>
+                    <div class="half top"><span> </span></div>
+                    <div class="half bottom"><span> </span></div>
+                `;
+                rowElement.appendChild(tile);
+                tiles.push({ element: tile, targetChar: char });
+            });
+
+            await new Promise(resolve => setTimeout(resolve, startDelay));
+
+            const tilePromises = tiles.map((item, index) => {
+                return new Promise(resolve => {
+                    setTimeout(async () => {
+                        await animateTile(item.element, item.targetChar);
+                        resolve();
+                    }, index * 150); 
+                });
+            });
+
+            await Promise.all(tilePromises);
+        }
+
+        async function runDisplay() {
+            // Infinite loop for continuous screen saver playback
+            while (true) {
+                // Clear the board for a fresh start on every loop
+                board.innerHTML = '';
+                
+                const row1 = createRow();
+                const row2 = createRow();
+
+                // Animate first line
+                await animateLine(line1, row1, 500);
+                
+                // Wait briefly, then animate second line
+                await animateLine(line2, row2, 300);
+                
+                // Hold the final text for 5 seconds before resetting the loop
+                await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+        }
+
+        // Start the continuous sequence
+        runDisplay();
+    </script>
+
+</body>
+</html>
